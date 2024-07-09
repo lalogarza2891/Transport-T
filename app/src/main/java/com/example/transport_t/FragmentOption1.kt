@@ -28,6 +28,7 @@ class FragmentOption1 : Fragment() {
         "Philadelphia", "San Antonio", "San Diego", "Dallas", "San Jose"
     )
 
+
     private val savedPlaces = mutableListOf<Pair<String, String>>()
 
     override fun onCreateView(
