@@ -1,0 +1,15 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/navigation_option1"
+        android:icon="@drawable/option1"
+        android:title="Ruta" />
+    <item
+        android:id="@+id/navigation_option2"
+        android:icon="@drawable/option2"
+
+        android:title="Mapa" />
+    <item
+        android:id="@+id/navigation_option3"
+        android:icon="@drawable/option3"
+        android:title="Alarmas" />
+</menu>

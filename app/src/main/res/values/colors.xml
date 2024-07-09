@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Color blanco -->
+    <color name="white">#FFFFFF</color>
+
+    <!-- Color negro -->
+    <color name="black">#000000</color>
+    <color name="route_color">#FF4081</color>
+    <!-- Color personalizado para los botones -->
+    <color name="button_color">#225479</color>
+</resources>

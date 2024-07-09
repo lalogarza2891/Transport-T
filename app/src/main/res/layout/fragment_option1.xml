@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/white"
+    android:gravity="right|top"
+    android:padding="0dp"
+    android:orientation="vertical">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="178dp"
+        android:layout_gravity="center|top"
+        android:background="@drawable/sab">
+
+        <AutoCompleteTextView
+            android:id="@+id/searchAutoCompleteTextView"
+            style="@style/Widget.AppCompat.AutoCompleteTextView"
+            android:layout_width="305dp"
+            android:layout_height="40dp"
+            android:layout_marginLeft="20dp"
+            android:layout_marginTop="50dp"
+            android:background="@color/white"
+            android:backgroundTint="@color/black"
+            android:gravity="center|center_vertical"
+            android:hint="¿A dónde quieres ir?"
+            android:inputType="text"
+            android:padding="0dp"
+            android:textColor="@color/white"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            tools:ignore="RtlHardcoded,TouchTargetSizeCheck" />
+
+        <Button
+            android:id="@+id/button4"
+            android:layout_width="76dp"
+            android:layout_height="42dp"
+            android:layout_marginTop="50dp"
+            android:layout_marginRight="20dp"
+            android:background="#3949AB"
+            android:backgroundTint="#3949AB"
+            android:text="Ir"
+            android:textAlignment="center"
+            android:textColor="@color/white"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:theme="@style/Base.Theme.TransportT"
+            tools:ignore="TouchTargetSizeCheck" />
+
+    </LinearLayout>
+
+    <!-- Container para lugares guardados -->
+    <LinearLayout
+        android:id="@+id/savedPlacesContainer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/button_color"
+        android:gravity="left"
+        android:orientation="vertical">
+        <!-- Aquí se agregarán dinámicamente las vistas de lugares guardados -->
+    </LinearLayout>
+
+</LinearLayout>
