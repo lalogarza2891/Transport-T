@@ -29,6 +29,7 @@ class FragmentOption1 : Fragment() {
     )
 
 
+
     private val savedPlaces = mutableListOf<Pair<String, String>>()
 
     override fun onCreateView(
