@@ -25,10 +25,8 @@ class FragmentOption1 : Fragment() {
 
     private val commonCities = listOf(
         "New York", "Los Angeles", "Chicago", "Houston", "Phoenix",
-        "Philadelphia", "San Antonio", "San Diego", "Dallas", "San Jose"
+        "Philadelphia", "San Antonixxxxo", "San Diego", "Dallas", "San Jose"
     )
-
-
 
     private val savedPlaces = mutableListOf<Pair<String, String>>()
 
