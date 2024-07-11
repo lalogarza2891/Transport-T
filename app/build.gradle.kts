@@ -37,6 +37,8 @@ android {
 }
 
 dependencies {
+    implementation ("com.google.code.gson:gson:2.8.9")
+    implementation ("org.slf4j:slf4j-simple:1.7.25")
     implementation ("com.google.android.gms:play-services-maps:18.0.2")
     implementation("com.squareup.okhttp3:logging-interceptor:4.10.0")
     implementation ("com.google.android.libraries.places:places:2.4.0")
@@ -48,6 +50,7 @@ dependencies {
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("com.google.android.material:material:1.11.0")
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
+    implementation("com.google.firebase:firebase-crashlytics-buildtools:3.0.2")
     testImplementation("junit:junit:4.13.2")
     implementation ("androidx.appcompat:appcompat:1.6.1")
     implementation ("androidx.fragment:fragment-ktx:1.6.0")

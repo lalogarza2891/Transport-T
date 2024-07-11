@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -12,11 +13,39 @@ import androidx.appcompat.app.AlertDialog
 import androidx.core.view.children
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
+import com.google.firebase.crashlytics.buildtools.reloc.com.google.common.reflect.TypeToken
+import com.google.gson.Gson
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
-import java.io.*
 
 class FragmentOption1 : Fragment() {
+    companion object {
+        private const val PREFS_NAME = "SavedPlacesPrefs"
+        private const val PLACES_KEY = "SavedPlaces"
+
+        fun getSavedPlaces(context: Context): List<Pair<String, String>> {
+            val sharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val placesJson = sharedPreferences.getString(PLACES_KEY, "[]")
+            val type = object : TypeToken<List<Pair<String, String>>>() {}.type
+            return Gson().fromJson(placesJson, type)
+        }
+
+        fun addSavedPlace(context: Context, place: Pair<String, String>) {
+            val places = getSavedPlaces(context).toMutableList()
+            places.add(place)
+            savePlaces(context, places)
+        }
+
+        fun clearSavedPlaces(context: Context) {
+            savePlaces(context, emptyList())
+        }
+
+        fun savePlaces(context: Context, places: List<Pair<String, String>>) {
+            val sharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val placesJson = Gson().toJson(places)
+            sharedPreferences.edit().putString(PLACES_KEY, placesJson).apply()
+        }
+    }
 
     private lateinit var searchAutoCompleteTextView: AutoCompleteTextView
     private lateinit var locationApiHelper: LocationApiHelper
@@ -25,7 +54,7 @@ class FragmentOption1 : Fragment() {
 
     private val commonCities = listOf(
         "New York", "Los Angeles", "Chicago", "Houston", "Phoenix",
-        "Philadelphia", "San Antonixxxxo", "San Diego", "Dallas", "San Jose"
+        "Philadelphia", "San Antonio", "San Diego", "Dallas", "San Jose"
     )
 
     private val savedPlaces = mutableListOf<Pair<String, String>>()
@@ -39,7 +68,10 @@ class FragmentOption1 : Fragment() {
 
         locationApiHelper = LocationApiHelper(apiKey, requireContext())
 
-        loadSavedPlacesFromCSV()
+        // Cargar lugares guardados desde las preferencias compartidas
+        savedPlaces.clear()
+        savedPlaces.addAll(getSavedPlaces(requireContext()))
+
         setupAutoCompleteTextView()
         setupSavedPlacesContainer(view)
 
@@ -116,6 +148,7 @@ class FragmentOption1 : Fragment() {
         }
         container.addView(noPlacesTextView)
     }
+
     private fun createPlaceView(placeName: String, placeAddress: String): View {
         val placeView = LayoutInflater.from(requireContext()).inflate(R.layout.saved_place_item, null)
         placeView.findViewById<TextView>(R.id.placeNameTextView).text = placeName
@@ -130,6 +163,7 @@ class FragmentOption1 : Fragment() {
 
         return placeView
     }
+
     private fun showDeleteConfirmationDialog(placeName: String, placeAddress: String) {
         AlertDialog.Builder(requireContext())
             .setTitle("Eliminar lugar")
@@ -140,10 +174,18 @@ class FragmentOption1 : Fragment() {
             .setNegativeButton("No", null)
             .show()
     }
-    private fun deletePlace(placeName: String, placeAddress: String) {
-        savedPlaces.removeAll { it.first == placeName && it.second == placeAddress }
-        saveSavedPlacesToCSV()
 
+    private fun deletePlace(placeName: String, placeAddress: String) {
+        // Eliminar el lugar de la lista savedPlaces
+        savedPlaces.removeAll { it.first == placeName && it.second == placeAddress }
+
+        // Actualizar las preferencias compartidas
+        context?.let { ctx ->
+            val updatedPlaces = getSavedPlaces(ctx).filter { it.first != placeName || it.second != placeAddress }
+            savePlaces(ctx, updatedPlaces)
+        }
+
+        // Actualizar la vista
         view?.findViewById<LinearLayout>(R.id.savedPlacesContainer)?.let { container ->
             // Elimina la vista del lugar
             val placeViewToRemove = container.children.find {
@@ -164,6 +206,7 @@ class FragmentOption1 : Fragment() {
 
         Toast.makeText(requireContext(), "Lugar eliminado", Toast.LENGTH_SHORT).show()
     }
+
     private fun showAddPlaceDialog() {
         val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_add_place, null)
         val placeNameInput = dialogView.findViewById<EditText>(R.id.placeNameInput)
@@ -204,8 +247,6 @@ class FragmentOption1 : Fragment() {
             .setTitle("Agregar nuevo lugar")
             .setView(dialogView)
             .setPositiveButton("Agregar") { dialog, _ ->
-
-
                 val newPlaceName = placeNameInput.text.toString().trim()
                 val newPlaceAddress = placeAddressInput.text.toString().trim()
                 if (newPlaceName.isNotEmpty() && newPlaceAddress.isNotEmpty()) {
@@ -224,6 +265,9 @@ class FragmentOption1 : Fragment() {
 
     private fun addNewPlace(placeName: String, placeAddress: String) {
         savedPlaces.add(Pair(placeName, placeAddress))
+        val newPlace = Pair(placeName, placeAddress)
+
+        addSavedPlace(requireContext(), newPlace)
         val savedPlacesContainer = view?.findViewById<LinearLayout>(R.id.savedPlacesContainer)
         savedPlacesContainer?.let { container ->
             // Elimina el texto "No hay lugares guardados" si existe
@@ -231,9 +275,9 @@ class FragmentOption1 : Fragment() {
                 container.removeView(it)
             }
             val newPlaceView = createPlaceView(placeName, placeAddress)
+
             container.addView(newPlaceView, container.childCount - 1) // Inserta antes del botón "Agregar lugar"
         }
-        saveSavedPlacesToCSV()
 
         // Actualizar las sugerencias del buscador principal
         val allSuggestions = (savedPlaces.map { it.first } + commonCities).distinct()
@@ -273,40 +317,6 @@ class FragmentOption1 : Fragment() {
         adapter.notifyDataSetChanged()
         if (locations.isNotEmpty()) {
             autoCompleteTextView.showDropDown()
-        }
-    }
-
-    private fun saveSavedPlacesToCSV() {
-        val csvFile = File(requireContext().filesDir, "saved_places.csv")
-        try {
-            val writer = FileWriter(csvFile)
-            savedPlaces.forEach { place ->
-                writer.append("${place.first},${place.second}\n")
-            }
-            writer.flush()
-            writer.close()
-        } catch (e: IOException) {
-            e.printStackTrace()
-        }
-    }
-
-    private fun loadSavedPlacesFromCSV() {
-        val csvFile = File(requireContext().filesDir, "saved_places.csv")
-        try {
-            if (csvFile.exists()) {
-                val reader = BufferedReader(FileReader(csvFile))
-                var line: String?
-                savedPlaces.clear() // Limpia la lista antes de cargar
-                while (reader.readLine().also { line = it } != null) {
-                    val tokens = line!!.split(",")
-                    if (tokens.size >= 2) {
-                        savedPlaces.add(Pair(tokens[0], tokens[1]))
-                    }
-                }
-                reader.close()
-            }
-        } catch (e: IOException) {
-            e.printStackTrace()
         }
     }
 
