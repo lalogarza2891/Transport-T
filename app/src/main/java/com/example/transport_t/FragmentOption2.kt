@@ -13,6 +13,7 @@ import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.*
+import com.google.firebase.database.*
 import com.google.maps.DirectionsApi
 import com.google.maps.GeoApiContext
 import com.google.maps.GeocodingApi
@@ -26,6 +27,7 @@ class FragmentOption2 : Fragment(), OnMapReadyCallback {
     private lateinit var mMap: GoogleMap
     private lateinit var geoApiContext: GeoApiContext
     private var markers = mutableListOf<Marker>()
+    private lateinit var database: DatabaseReference
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -42,13 +44,16 @@ class FragmentOption2 : Fragment(), OnMapReadyCallback {
         geoApiContext = GeoApiContext.Builder()
             .apiKey("AIzaSyCiom4P0R8ghymtiW4DM7uyeUhzNfMTelA")
             .build()
+
+        // Inicializa la referencia de Firebase Database
+        database = FirebaseDatabase.getInstance().reference
     }
 
     override fun onMapReady(googleMap: GoogleMap) {
         mMap = googleMap
         Log.d("FragmentOption2", "Map is ready")
         showSavedPlaces()
-        showOriginalRoute()
+        fetchRouteFromFirebase()
     }
 
     private fun showSavedPlaces() {
@@ -83,7 +88,7 @@ class FragmentOption2 : Fragment(), OnMapReadyCallback {
                 if (results.isNotEmpty()) {
                     val location = results[0].geometry.location
                     withContext(Dispatchers.Main) {
-                        val latLng = LatLng(location.lat, location.lng)
+                        val latLng = LatLng(location.lat, location.lng).toGmsLatLng()
                         val marker = mMap.addMarker(MarkerOptions().position(latLng).title(place.first))
                         marker?.let {
                             markers.add(it)
@@ -113,19 +118,30 @@ class FragmentOption2 : Fragment(), OnMapReadyCallback {
         Log.d("FragmentOption2", "Zoomed to fit markers")
     }
 
-    private fun showOriginalRoute() {
-        // Definir los puntos de inicio, fin y waypoints de la ruta
-        val start = com.google.maps.model.LatLng(27.84363467466449, -101.11492153163344)
-        val end = com.google.maps.model.LatLng(27.84363467466449, -101.11492153163344)
-        val waypoints = listOf(
-            com.google.maps.model.LatLng(27.84705142713724, -101.1101262245768),
-            com.google.maps.model.LatLng(27.85153832411702, -101.11403696042882),
-            com.google.maps.model.LatLng(27.85524296150798, -101.11873915472707),
-            com.google.maps.model.LatLng(27.845651806608924, -101.12157909385769),
-            com.google.maps.model.LatLng(27.842687844693174, -101.11855292921028)
-        )
+    private fun fetchRouteFromFirebase() {
+        database.child("routes/original").addListenerForSingleValueEvent(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                try {
+                    val start = snapshot.child("start").getValue(LatLng::class.java)
+                    val end = snapshot.child("end").getValue(LatLng::class.java)
+                    val waypoints = snapshot.child("waypoints").children.map {
+                        it.getValue(LatLng::class.java)
+                    }.filterNotNull()
 
-        getRoute(start, end, waypoints)
+                    if (start != null && end != null && waypoints.isNotEmpty()) {
+                        getRoute(start.toMapsLatLng(), end.toMapsLatLng(), waypoints.map { it.toMapsLatLng() })
+                    } else {
+                        Log.e("FragmentOption2", "Invalid route data from Firebase")
+                    }
+                } catch (e: Exception) {
+                    Log.e("FragmentOption2", "Error parsing route data: ${e.message}")
+                }
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                Log.e("FragmentOption2", "Failed to fetch route from Firebase: ${error.message}")
+            }
+        })
     }
 
     private fun getRoute(start: com.google.maps.model.LatLng, end: com.google.maps.model.LatLng, waypoints: List<com.google.maps.model.LatLng>) {
