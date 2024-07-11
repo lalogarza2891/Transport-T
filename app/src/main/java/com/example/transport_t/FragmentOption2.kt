@@ -21,6 +21,7 @@ import com.google.maps.android.PolyUtil
 import com.google.maps.model.DirectionsResult
 import com.google.maps.model.TravelMode
 import kotlinx.coroutines.*
+import kotlin.random.Random
 
 class FragmentOption2 : Fragment(), OnMapReadyCallback {
 
@@ -45,7 +46,7 @@ class FragmentOption2 : Fragment(), OnMapReadyCallback {
             .apiKey("AIzaSyCiom4P0R8ghymtiW4DM7uyeUhzNfMTelA")
             .build()
 
-        // Inicializa la referencia de Firebase Database
+        // Initialize Firebase Database reference
         database = FirebaseDatabase.getInstance().reference
     }
 
@@ -53,7 +54,7 @@ class FragmentOption2 : Fragment(), OnMapReadyCallback {
         mMap = googleMap
         Log.d("FragmentOption2", "Map is ready")
         showSavedPlaces()
-        fetchRouteFromFirebase()
+        fetchRoutesFromFirebase()
     }
 
     private fun showSavedPlaces() {
@@ -77,7 +78,7 @@ class FragmentOption2 : Fragment(), OnMapReadyCallback {
     private fun clearMarkers() {
         markers.forEach { it.remove() }
         markers.clear()
-        mMap.clear() // Esto elimina todos los marcadores y otras superposiciones del mapa
+        mMap.clear() // This removes all markers and other overlays from the map
         Log.d("FragmentOption2", "All markers and overlays cleared")
     }
 
@@ -118,33 +119,35 @@ class FragmentOption2 : Fragment(), OnMapReadyCallback {
         Log.d("FragmentOption2", "Zoomed to fit markers")
     }
 
-    private fun fetchRouteFromFirebase() {
-        database.child("routes/original").addListenerForSingleValueEvent(object : ValueEventListener {
+    private fun fetchRoutesFromFirebase() {
+        database.child("routes").addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-                try {
-                    val start = snapshot.child("start").getValue(LatLng::class.java)
-                    val end = snapshot.child("end").getValue(LatLng::class.java)
-                    val waypoints = snapshot.child("waypoints").children.map {
-                        it.getValue(LatLng::class.java)
-                    }.filterNotNull()
+                snapshot.children.forEach { routeSnapshot ->
+                    try {
+                        val start = routeSnapshot.child("start").getValue(LatLng::class.java)
+                        val end = routeSnapshot.child("end").getValue(LatLng::class.java)
+                        val waypoints = routeSnapshot.child("waypoints").children.map {
+                            it.getValue(LatLng::class.java)
+                        }.filterNotNull()
 
-                    if (start != null && end != null && waypoints.isNotEmpty()) {
-                        getRoute(start.toMapsLatLng(), end.toMapsLatLng(), waypoints.map { it.toMapsLatLng() })
-                    } else {
-                        Log.e("FragmentOption2", "Invalid route data from Firebase")
+                        if (start != null && end != null && waypoints.isNotEmpty()) {
+                            getRoute(start.toMapsLatLng(), end.toMapsLatLng(), waypoints.map { it.toMapsLatLng() }, routeSnapshot.key)
+                        } else {
+                            Log.e("FragmentOption2", "Invalid route data from Firebase for ${routeSnapshot.key}")
+                        }
+                    } catch (e: Exception) {
+                        Log.e("FragmentOption2", "Error parsing route data for ${routeSnapshot.key}: ${e.message}")
                     }
-                } catch (e: Exception) {
-                    Log.e("FragmentOption2", "Error parsing route data: ${e.message}")
                 }
             }
 
             override fun onCancelled(error: DatabaseError) {
-                Log.e("FragmentOption2", "Failed to fetch route from Firebase: ${error.message}")
+                Log.e("FragmentOption2", "Failed to fetch routes from Firebase: ${error.message}")
             }
         })
     }
 
-    private fun getRoute(start: com.google.maps.model.LatLng, end: com.google.maps.model.LatLng, waypoints: List<com.google.maps.model.LatLng>) {
+    private fun getRoute(start: com.google.maps.model.LatLng, end: com.google.maps.model.LatLng, waypoints: List<com.google.maps.model.LatLng>, routeId: String?) {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val result = DirectionsApi.newRequest(geoApiContext)
@@ -156,29 +159,41 @@ class FragmentOption2 : Fragment(), OnMapReadyCallback {
                     .await()
 
                 withContext(Dispatchers.Main) {
-                    drawRoute(result)
+                    drawRoute(result, routeId)
                 }
             } catch (e: Exception) {
-                Log.e("FragmentOption2", "Error getting route: ${e.message}")
+                Log.e("FragmentOption2", "Error getting route $routeId: ${e.message}")
             }
         }
     }
 
-    private fun drawRoute(result: DirectionsResult) {
+    private fun drawRoute(result: DirectionsResult, routeId: String?) {
         val decodedPath = PolyUtil.decode(result.routes[0].overviewPolyline.encodedPath)
 
+        val color = getColorForRoute(routeId)
         val polylineOptions = PolylineOptions()
             .addAll(decodedPath)
-            .color(Color.BLUE)
+            .color(color)
             .width(10f)
 
         mMap.addPolyline(polylineOptions)
 
-        // Ajustar la cámara para mostrar toda la ruta
+        // Adjust the camera to show the entire route
         val bounds = LatLngBounds.Builder()
         decodedPath.forEach { bounds.include(it) }
         mMap.moveCamera(CameraUpdateFactory.newLatLngBounds(bounds.build(), 100))
-        Log.d("FragmentOption2", "Route drawn")
+        Log.d("FragmentOption2", "Route $routeId drawn")
+    }
+
+    private fun getColorForRoute(routeId: String?): Int {
+        return when (routeId) {
+            "original" -> Color.BLUE
+            else -> {
+                // Generate a random color for other routes
+                val rnd = Random
+                Color.argb(255, rnd.nextInt(256), rnd.nextInt(256), rnd.nextInt(256))
+            }
+        }
     }
 
     override fun onResume() {
@@ -186,5 +201,15 @@ class FragmentOption2 : Fragment(), OnMapReadyCallback {
         if (::mMap.isInitialized) {
             showSavedPlaces()
         }
+    }
+
+    // Extension function to convert Firebase LatLng to Google Maps LatLng
+    private fun LatLng.toMapsLatLng(): com.google.maps.model.LatLng {
+        return com.google.maps.model.LatLng(this.latitude, this.longitude)
+    }
+
+    // Extension function to convert Google Maps LatLng to Android Maps LatLng
+    private fun com.google.maps.model.LatLng.toGmsLatLng(): com.google.android.gms.maps.model.LatLng {
+        return com.google.android.gms.maps.model.LatLng(this.lat, this.lng)
     }
 }
